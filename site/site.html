@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>BLACK TRACE</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: black;
+      color: #00ffcc;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin: 20px;
+      font-size: 2em;
+      color: #ff0040;
+      text-shadow: 0 0 10px red;
+    }
+    canvas {
+      background: repeating-linear-gradient(45deg, #001010 0px, #001010 10px, #000000 10px, #000000 20px);
+      border: 2px solid #00ffcc;
+    }
+    #scoreboard {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 1.2em;
+    }
+    #gameOverScreen {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 20px;
+      border: 2px solid #ff0040;
+      text-align: center;
+    }
+    input, button {
+      margin-top: 10px;
+      padding: 8px;
+      background: #111;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+    }
+    #leaderboard ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>BLACK TRACE</h1>
+  <div id="scoreboard">Score : 0</div>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+  <div id="gameOverScreen">
+    <h2>💀 GAME OVER 💀</h2>
+    <p>Ton score : <span id="finalScore">0</span></p>
+    <input type="text" id="playerName" placeholder="Ton pseudo">
+    <button onclick="submitScore()">Sauver</button>
+    <h3>🏆 Classement</h3>
+    <ul id="leaderboard"></ul>
+    <button onclick="restartGame()">Rejouer</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreboard = document.getElementById("scoreboard");
+
+    let player = { x: 180, y: 500, size: 20 };
+    let obstacles = [];
+    let speed = 4;
+    let score = 0;
+    let gameOver = false;
+    let highScores = JSON.parse(localStorage.getItem("blackTraceScores") || "[]");
+
+    function drawPlayer() {
+      ctx.fillStyle = "#00ffcc";
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "#ff0040";
+      for (let obs of obstacles) {
+        ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+      }
+    }
+
+    function updateObstacles() {
+      if (Math.random() < 0.05) {
+        let width = Math.random() * 150 + 30;
+        let x = Math.random() * (canvas.width - width);
+        obstacles.push({ x, y: -40, w: width, h: 20 });
+      }
+      for (let obs of obstacles) {
+        obs.y += speed;
+      }
+      obstacles = obstacles.filter(o => o.y < canvas.height);
+    }
+
+    function detectCollision() {
+      for (let obs of obstacles) {
+        if (
+          player.x < obs.x + obs.w &&
+          player.x + player.size > obs.x &&
+          player.y < obs.y + obs.h &&
+          player.y + player.size > obs.y
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function gameLoop() {
+      if (gameOver) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawPlayer();
+      drawObstacles();
+      updateObstacles();
+
+      score++;
+      speed += 0.002;
+      scoreboard.textContent = "Score : " + score;
+
+      if (detectCollision()) {
+        endGame();
+      } else {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowLeft") player.x -= 20;
+      if (e.key === "ArrowRight") player.x += 20;
+      player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+    });
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById("finalScore").textContent = score;
+      document.getElementById("gameOverScreen").style.display = "block";
+      showLeaderboard();
+    }
+
+    function submitScore() {
+      const name = document.getElementById("playerName").value.trim();
+      if (!name) return;
+      highScores.push({ name, score });
+      highScores.sort((a, b) => b.score - a.score);
+      highScores = highScores.slice(0, 5);
+      localStorage.setItem("blackTraceScores", JSON.stringify(highScores));
+      showLeaderboard();
+    }
+
+    function showLeaderboard() {
+      const list = document.getElementById("leaderboard");
+      list.innerHTML = "";
+      highScores.forEach((entry, i) => {
+        const li = document.createElement("li");
+        li.textContent = `${i + 1}. ${entry.name} - ${entry.score}`;
+        list.appendChild(li);
+      });
+    }
+
+    function restartGame() {
+      player.x = 180;
+      speed = 4;
+      score = 0;
+      obstacles = [];
+      gameOver = false;
+      document.getElementById("gameOverScreen").style.display = "none";
+      gameLoop();
+    }
+
+    // Démarrer le jeu
+    gameLoop();
+  </script>
+</body>
+</html>
